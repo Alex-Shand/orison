@@ -1,5 +1,5 @@
 # /// script
-# requires-python = ">=3.12"
+# requires-python = ">=3.14"
 # dependencies = [
 #     "black>=26.3.1",
 #     "isort>=8.0.1",
@@ -11,7 +11,8 @@
 import sys
 from pathlib import Path
 
-from orison import sh, typez
+import orison
+from orison import command, sh, typez
 
 SRC = Path(__file__).resolve().parent / "src"
 MYPYPATH = {"MYPYPATH": str(SRC)}
@@ -62,8 +63,11 @@ def main() -> None:
         isort(module)
         pylint(module)
 
+        command.check(orison)
+
         sys.exit(0)
-    except Exception:  # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        print(e)
         sys.exit(1)
 
 

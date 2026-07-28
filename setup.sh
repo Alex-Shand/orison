@@ -23,7 +23,7 @@ python -m zipapp . \
 
 ## Virtualization Stuff ##
 
-sudo rpm-ostree install qemu-kvm libvirt virt-install
+sudo rpm-ostree install --idempotent qemu-kvm libvirt virt-install
 ujust setup-virtualization virt-on
 
 ## For GPU passthrough ##
@@ -34,7 +34,7 @@ if ! command -v ls-iommu >/dev/null 2>&1; then
     mv /tmp/ls-iommu $BIN/ls-iommu
 fi
 
-VENDOR=$(lscpu | awk -F': ' '/Vendor ID/ {print $2}')
+VENDOR=$(lscpu | perl -ne 'print $1 if /Vendor ID:\s+(.*)/')
 case "$VENDOR" in
     GenuineIntel) CPU=intel ;;
     AuthenticAMD) CPU=amd ;;
