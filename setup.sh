@@ -17,7 +17,7 @@ BIN=$HOME/.local/bin
 mkdir -p "$BIN"
 cd src
 python -m zipapp . \
-    --python="/usr/bin/env python" \
+    --python="/usr/bin/env -S uv run -w psutil" \
     --compress \
     --output="$BIN/orison"
 

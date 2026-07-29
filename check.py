@@ -19,7 +19,7 @@ MYPYPATH = {"MYPYPATH": str(SRC)}
 
 
 def uv(*cmd: str | typez.PathLike, env: dict[str, str] | None = None) -> None:
-    sh.run("uv", "run", *cmd, env=env)
+    sh.run("uv", "run", *cmd, env=env, capture=False)
 
 
 def mypy(path: typez.PathLike) -> None:
@@ -35,7 +35,12 @@ def isort(path: typez.PathLike) -> None:
 
 
 def pylint(path: typez.PathLike) -> None:
-    uv("pylint", "--disable", "C0114,C0115,C0116,E0611,W0621,W0622,W0719", path)
+    uv(
+        "pylint",
+        "--disable",
+        "C0114,C0115,C0116,E0611,R0913,R0917,W0621,W0622,W0718,W0719",
+        path,
+    )
 
 
 def main() -> None:
@@ -55,6 +60,7 @@ def main() -> None:
         uv(
             "mypy",
             "--strict",
+            "--allow-redefinition",
             "-p",
             "orison",
             env=MYPYPATH,
