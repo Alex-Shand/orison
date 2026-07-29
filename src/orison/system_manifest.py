@@ -1,9 +1,9 @@
 import json
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
 
 from . import sh, util
+from .typez import JsonObj
 
 _MANIFEST_PATH = util.config_dir() / "system.json"
 
@@ -26,7 +26,7 @@ class SystemManifest:
         return SystemManifest._probe()
 
     @staticmethod
-    def _from_json(json: dict[str, Any]) -> SystemManifest:
+    def _from_json(json: JsonObj) -> SystemManifest:
         return SystemManifest(
             total_ram_mb=json["total_ram_mb"],
             cpu_topology=CpuTopology._from_json(  # pylint: disable=protected-access
@@ -56,14 +56,14 @@ class CpuTopology:
     topology: dict[int, list[int]]
 
     @staticmethod
-    def _from_json(json: dict[str, Any]) -> CpuTopology:
+    def _from_json(json: JsonObj) -> CpuTopology:
         return CpuTopology(
             cores=json["cores"],
             threads=json["threads"],
             topology={int(core): threads for core, threads in json["topology"].items()},
         )
 
-    def _to_json(self) -> dict[str, Any]:
+    def _to_json(self) -> JsonObj:
         return {"cores": self.cores, "threads": self.threads, "topology": self.topology}
 
     @staticmethod

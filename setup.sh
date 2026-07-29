@@ -15,16 +15,18 @@ PYTHONPATH=src uv run check.py
 
 BIN=$HOME/.local/bin
 mkdir -p "$BIN"
-cd src
+pushd src
 python -m zipapp . \
-    --python="/usr/bin/env -S uv run -w psutil" \
+    --python="/usr/bin/env python" \
     --compress \
     --output="$BIN/orison"
+popd
 
 ## Virtualization Stuff ##
 
 sudo rpm-ostree install --idempotent qemu-kvm libvirt virt-install
 ujust setup-virtualization virt-on
+sudo rsync -a --info=progress2 orison-win10.iso /var/lib/libvirt/images/
 
 ## For GPU passthrough ##
 

@@ -38,7 +38,7 @@ def pylint(path: typez.PathLike) -> None:
     uv(
         "pylint",
         "--disable",
-        "C0114,C0115,C0116,E0611,R0913,R0917,W0621,W0622,W0718,W0719",
+        "C0114,C0115,C0116,E0611,R0913,R0917,W0511,W0621,W0622,W0718,W0719",
         path,
     )
 
