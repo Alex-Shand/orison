@@ -27,3 +27,6 @@ def run_audit(*cmd: typez.PathLike) -> None:
 
 def msiexec(msi: str) -> None:
     run_audit("msiexec", "/i", msi, "/norestart")
+
+def pwsh(cmd: str) -> None:
+    run_audit('powershell', '-C', f'&{{ {cmd} }}')

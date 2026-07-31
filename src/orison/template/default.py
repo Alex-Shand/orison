@@ -8,3 +8,4 @@ sh.run_audit("F:\\virtio-win-guest-tools.exe")
 sh.msiexec("E:\\_orison\\winsfp.msi")
 
 # Ensure Virt-FS service starts on boot
+sh.pwsh('Set-Service -Name VirtioFsSvc -StartupType Automatic -Status Running')
