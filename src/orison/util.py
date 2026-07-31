@@ -1,7 +1,11 @@
+import os
 from pathlib import Path
 
 IMAGE_DIR = Path("/var/lib/libvirt/images")
-RESOURCE_DIR = Path(os.path.expanduser(f'~{getpass.getuser()}')).resolve()
+RESOURCE_DIR = (
+    Path(os.path.expanduser(f"~{os.environ.get('SUDO_USER')}")).resolve() / ".orison"
+)
+
 
 def config_dir() -> Path:
     path = Path.home() / ".orison"

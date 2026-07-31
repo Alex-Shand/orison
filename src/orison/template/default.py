@@ -1,10 +1,10 @@
 from orison import sh
 
 # Install VirtIO Drivers
-sh.run('F:\\virtio-gt-x64.msi', capture=False, check=False)
-sh.run('F:\\virtio-win-guest-tools.exe', capture=False, check=False)
+sh.msiexec("F:\\virtio-win-gt-x64.msi")
+sh.run_audit("F:\\virtio-win-guest-tools.exe")
 
 # Install WinFuse
-sh.run('E:\\_orison\\winsfp.msi', capture=False, check=False)
+sh.msiexec("E:\\_orison\\winsfp.msi")
 
 # Ensure Virt-FS service starts on boot

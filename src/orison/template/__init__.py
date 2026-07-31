@@ -1,7 +1,7 @@
-import shutil
-from pathlib import Path
 import getpass
 import os
+import shutil
+from pathlib import Path
 
 from .. import sh, util
 from ..vm_manifest import VmManifest
@@ -9,6 +9,8 @@ from . import _util
 
 
 def build_iso(vm_manifest: VmManifest, template: str | None) -> Path:
+    print(util.RESOURCE_DIR)
+
     if template is None:
         template = "orison.template.default"
 
@@ -24,22 +26,23 @@ def build_iso(vm_manifest: VmManifest, template: str | None) -> Path:
             "-a",
             "--delete",
             "--info=progress2",
-            f'{path}/',
+            f"{path}/",
             str(build_dir),
             capture=False,
         )
-        run_cmd = f"path bootstrap.py"
+        run_cmd = "path bootstrap.py"
     else:
         run_cmd = f"module {template}"
 
     # We also put a copy of orison into the resource ISO so the bootstrap
     # process can use it
     utils_dir = build_dir / "_orison"
+    utils_dir.mkdir(parents=True, exist_ok=True)
     exe = Path(__file__).resolve().parent.parent.parent
     shutil.copy(exe, utils_dir / "orison.pyz")
 
     # And the winsfp.msi which is used by the default bootstrap template
-    shutil.copy(util.RESOURCE_DIR/'winsfp.msi', utils_dir/'winsfp.msi')
+    shutil.copy(util.RESOURCE_DIR / "winsfp.msi", utils_dir / "winsfp.msi")
 
     # Generate all of the bootstrap utilities
     _generate_utilities(build_dir, utils_dir, run_cmd)

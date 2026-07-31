@@ -141,6 +141,9 @@ def _create_vm(
         # Bootstrap resources
         "--disk",
         f"path={resources},device=cdrom",
+        # VirtIO drivers
+        "--disk",
+        f"path={util.IMAGE_DIR}/virtio-win.iso,device=cdrom",
         # Using virtio for the network model will also be more performant but again, we need
         # drivers for it
         "--network",
