@@ -24,9 +24,8 @@ popd
 
 ## Virtualization Stuff ##
 
-sudo rpm-ostree install --idempotent qemu-kvm libvirt virt-install
+sudo rpm-ostree install --idempotent qemu-kvm libvirt virt-install virt-viewer
 ujust setup-virtualization virt-on
-sudo rsync -a --info=progress2 orison-win10.iso /var/lib/libvirt/images/
 
 ## For GPU passthrough ##
 

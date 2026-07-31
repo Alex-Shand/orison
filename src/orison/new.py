@@ -5,6 +5,7 @@ from .command import Arg, cmd
 from .destroy import destroy_internal
 from .launch import launch as _launch
 from .system_manifest import SystemManifest
+from .template import build_iso
 from .vm_manifest import VmManifest
 
 _LAUNCH_ARGS = _launch._argspec  # type: ignore # pylint: disable=protected-access
@@ -47,7 +48,7 @@ def new(
 ) -> None:
     if name == "system":
         raise SystemExit("Cannot call a VM system")
-    assert template is None and not shared, "not implemented"
+    assert not shared, "not implemented"
     if not desktop and icon is not None:
         raise SystemExit("--icon can only be passed with --desktop")
 
@@ -69,10 +70,12 @@ def new(
         if force or not vm_manifest.complete:
             destroy_internal(vm_manifest)
         else:
+            print(f"VM {vm_manifest.name} already exists")
             return
 
     _create_disk(vm_manifest.disk)
-    _create_vm(vm_manifest, system_manifest)
+    resources = build_iso(vm_manifest, template)
+    _create_vm(vm_manifest, system_manifest, resources)
 
 
 def _create_disk(disk: Path) -> None:
@@ -85,9 +88,11 @@ def _create_disk(disk: Path) -> None:
     sh.run("qemu-img", "create", "-f", format, "-o", options, disk, capture=False)
 
 
-def _create_vm(vm_manifest: VmManifest, system_manifest: SystemManifest) -> None:
+def _create_vm(
+    vm_manifest: VmManifest, system_manifest: SystemManifest, resources: Path
+) -> None:
     # We explicitly provide the CPU topology to the guest because performance will be degraded if
-    # Windows misdetects the topology & later we're going to explicitly reserve specific host CPUs
+    # Windows misdetects the it & later we're going to explicitly reserve specific host CPUs
     # to provide to the guest. The host needs to keep 2 CPUs for virtualization tasks, if the CPU
     # is hyperthreaded this only requires one core TODO: --shared VMs should use less
     threads = system_manifest.cpu_topology.threads
@@ -133,6 +138,9 @@ def _create_vm(vm_manifest: VmManifest, system_manifest: SystemManifest) -> None
         # Installer
         "--cdrom",
         str(util.IMAGE_DIR / "orison-win10.iso"),
+        # Bootstrap resources
+        "--disk",
+        f"path={resources},device=cdrom",
         # Using virtio for the network model will also be more performant but again, we need
         # drivers for it
         "--network",
