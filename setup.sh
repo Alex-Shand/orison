@@ -27,6 +27,12 @@ popd
 sudo rpm-ostree install --idempotent qemu-kvm libvirt virt-install virt-viewer
 ujust setup-virtualization virt-on
 
+RESOURCE_DIR=$HOME/.orison/
+mkdir -p "$RESOURCE_DIR"
+if ! [[ -f "$RESOURCE_DIR/winsfp.msi" ]]; then
+    curl -LsSf https://github.com/winfsp/winfsp/releases/download/v2.2B3/winfsp-2.2.26194.msi -o "$RESOURCE_DIR/winsfp.msi"
+fi
+
 ## For GPU passthrough ##
 
 if ! command -v ls-iommu >/dev/null 2>&1; then
