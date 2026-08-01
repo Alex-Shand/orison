@@ -131,6 +131,10 @@ def _create_vm(
         # the disk file from growing too big
         "--disk",
         f"path={vm_manifest.disk},bus=sata,cache=writeback,io=threads,discard=unmap",
+        # Will never be used so won't occupy any actual disk space. Windows needs to see a VirtIO
+        # disk while the driver installation is ongoing or it won't add the VirtIO drivers
+        "--disk",
+        f"path={util.IMAGE_DIR}/virtio-tmp.raw,bus=virtio,size=1,sparse=true,format=raw",
         # I think this is only relevant once we switch to virtio disks but adding it now doesn't
         # break anything
         "--controller",
