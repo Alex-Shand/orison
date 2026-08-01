@@ -73,6 +73,13 @@ class CpuModel(str, Enum):
         with open(util.RESOURCE_DIR/"CPU", 'r', encoding='utf8') as f:
             return CpuModel._from_json(f.read().strip())
 
+    def hardware_virtualization_flag(self) -> str:
+        match self:
+            case CpuModel.INTEL:
+                return 'vmx'
+            case CpuModel.AMD:
+                return 'svm'
+
             
 
 @dataclass

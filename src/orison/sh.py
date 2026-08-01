@@ -20,6 +20,9 @@ def run(
         return result.stdout.decode("utf8")
     return ""
 
+def virsh(*cmd: str, check: bool = True, capture: bool = True) -> str:
+    return sh.run("virsh", "--connect", "qemu:///system", *cmd, check=check, capture=capture)
+
 
 def run_audit(*cmd: typez.PathLike) -> None:
     run(*cmd, check=False, capture=False, audit=True)

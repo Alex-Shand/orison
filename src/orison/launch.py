@@ -15,7 +15,7 @@ from .command import Arg, cmd
 )
 def launch(name: str, shared: bool) -> None:
     assert not shared, "not implemented"
-    sh.run("virsh", "--connect", "qemu:///system", "start", name, capture=False)
+    sh.virsh("start", name, capture=False)
     sh.run(
         "/usr/bin/flatpak",
         "run",
