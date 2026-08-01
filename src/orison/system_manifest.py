@@ -1,16 +1,17 @@
 import json
 from collections import defaultdict
 from dataclasses import dataclass
+from enum import Enum
 
 from . import sh, util
 from .typez import JsonObj
 
 _MANIFEST_PATH = util.config_dir() / "system.json"
 
-
 @dataclass
 class SystemManifest:
     total_ram_mb: int
+    cpu_model: CpuModel
     cpu_topology: CpuTopology
 
     @staticmethod
@@ -27,27 +28,52 @@ class SystemManifest:
 
     @staticmethod
     def _from_json(json: JsonObj) -> SystemManifest:
+        # pylint: disable=protected-access
         return SystemManifest(
             total_ram_mb=json["total_ram_mb"],
-            cpu_topology=CpuTopology._from_json(  # pylint: disable=protected-access
+            cpu_model=CpuModel._from_json(json["cpu_model"]),
+            cpu_topology=CpuTopology._from_json(
                 json["cpu_topology"]
             ),
         )
 
     @staticmethod
     def _probe() -> SystemManifest:
+        # pylint: disable=protected-access
         manifest = SystemManifest(
             total_ram_mb=_get_total_ram_mb(),
-            cpu_topology=CpuTopology._probe(),  # pylint: disable=protected-access
+            cpu_model = CpuModel._probe(), 
+            cpu_topology=CpuTopology._probe(),
         )
         as_json = {
             "total_ram_mb": manifest.total_ram_mb,
-            "cpu_topology": manifest.cpu_topology._to_json(),  # pylint: disable=protected-access
+            "cpu_model":  manifest.cpu_model._to_json(),
+            "cpu_topology": manifest.cpu_topology._to_json(),
         }
         with open(_MANIFEST_PATH, "w", encoding="utf8") as f:
             json.dump(as_json, f)
         return manifest
 
+
+class CpuModel(str, Enum):
+    INTEL = 'intel'
+    AMD = 'amd'
+
+    @staticmethod
+    def _from_json(json: str) -> CpuModel:
+        if not json in CpuModel:
+            raise Exception(f'Unknown CPU model: {json}')
+        return CpuModel[json]
+
+    def _to_json(self) -> str:
+        self.value
+    
+    @staticmethod
+    def _probe() -> CpuModel:
+        with open(util.RESOURCE_DIR/"CPU", 'r', encoding='utf8') as f:
+            return CpuModel._from_json(f.read().strip())
+
+            
 
 @dataclass
 class CpuTopology:

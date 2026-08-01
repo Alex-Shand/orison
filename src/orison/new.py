@@ -5,7 +5,7 @@ from .command import Arg, cmd
 from .destroy import destroy_internal
 from .launch import launch as _launch
 from .system_manifest import SystemManifest
-from .template import build_iso
+from .bootstrap import build_iso
 from .vm_manifest import VmManifest
 
 _LAUNCH_ARGS = _launch._argspec  # type: ignore # pylint: disable=protected-access
@@ -46,11 +46,13 @@ def new(
     snapshot: bool,
     shared: bool,
 ) -> None:
+    assert template is None, "not implemented"
     if name == "system":
         raise SystemExit("Cannot call a VM system")
-    assert not shared, "not implemented"
     if not desktop and icon is not None:
         raise SystemExit("--icon can only be passed with --desktop")
+    if not desktop and not shared:
+        raise SystemExit("Cannot pass launch options without --desktop")
 
     system_manifest = SystemManifest.load()
     old_vm_manifest = VmManifest.try_load(name)
@@ -74,7 +76,7 @@ def new(
             return
 
     _create_disk(vm_manifest.disk)
-    resources = build_iso(vm_manifest, template)
+    resources = build_iso(vm_manifest)
     _create_vm(vm_manifest, system_manifest, resources)
 
 
@@ -109,6 +111,8 @@ def _create_vm(
         # bypasses figuring out how TPM works
         "--boot",
         "uefi=off",
+        # Apparently this setting improves passthrough performance and stability
+        '--machine', 'q35',
         # We start with 2GB of RAM (in MB), the minimum Windows 10 needs to function. This will
         # be changed later
         "--memory",

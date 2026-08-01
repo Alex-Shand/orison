@@ -1,5 +1,8 @@
 from orison import sh
 
+# Delete the password from the user account to enable auto-login
+sh.pwsh("Set-LocalUser -name 'Admin' -Password ([securestring]::new())")
+
 # Install VirtIO Drivers
 sh.msiexec("F:\\virtio-win-gt-x64.msi")
 sh.run_audit("F:\\virtio-win-guest-tools.exe")

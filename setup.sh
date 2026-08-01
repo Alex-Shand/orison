@@ -47,6 +47,7 @@ case "$VENDOR" in
     AuthenticAMD) CPU=amd ;;
     *)            echo "Unknown vendor: $VENDOR"; exit 1 ;;
 esac
+echo "$VENDOR" >"$RESOURCE_DIR/CPU"
 
 sudo rpm-ostree kargs --append-if-missing=${CPU}_iommu=on --append-if-missing=iommu=pt
 
