@@ -8,7 +8,7 @@ sh.pwsh("Set-LocalUser -Name 'Admin' -Password ([securestring]::new())")
 
 # Install VirtIO Drivers
 sh.msiexec("F:\\virtio-win-gt-x64.msi")
-sh.run_audit("F:\\virtio-win-guest-tools.exe")
+sh.run_audit("F:\\virtio-win-guest-tools.exe", "/passive", "/norestart")
 
 # Install WinFuse
 sh.msiexec("E:\\winsfp.msi")
