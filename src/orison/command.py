@@ -89,7 +89,7 @@ def _get_all_functions(
     package: ModuleType,
 ) -> Generator[tuple[str, FunctionType], None, None]:
     for _, name, _ in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
-        if name.startswith("orison.template"):
+        if name.startswith("orison.bootstrap"):
             continue
         module = importlib.import_module(name)
         for name, func in inspect.getmembers(module, inspect.isfunction):

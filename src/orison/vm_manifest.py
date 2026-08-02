@@ -33,6 +33,10 @@ class VmManifest:
             pass
         return None
 
+    def mark_complete(self) -> None:
+        self.complete = True
+        self._write()
+
     @staticmethod
     def _from_json(json: JsonObj) -> VmManifest:
         return VmManifest(

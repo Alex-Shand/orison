@@ -8,6 +8,7 @@ from .typez import JsonObj
 
 _MANIFEST_PATH = util.config_dir() / "system.json"
 
+
 @dataclass
 class SystemManifest:
     total_ram_mb: int
@@ -32,9 +33,7 @@ class SystemManifest:
         return SystemManifest(
             total_ram_mb=json["total_ram_mb"],
             cpu_model=CpuModel._from_json(json["cpu_model"]),
-            cpu_topology=CpuTopology._from_json(
-                json["cpu_topology"]
-            ),
+            cpu_topology=CpuTopology._from_json(json["cpu_topology"]),
         )
 
     @staticmethod
@@ -42,12 +41,12 @@ class SystemManifest:
         # pylint: disable=protected-access
         manifest = SystemManifest(
             total_ram_mb=_get_total_ram_mb(),
-            cpu_model = CpuModel._probe(), 
+            cpu_model=CpuModel._probe(),
             cpu_topology=CpuTopology._probe(),
         )
         as_json = {
             "total_ram_mb": manifest.total_ram_mb,
-            "cpu_model":  manifest.cpu_model._to_json(),
+            "cpu_model": manifest.cpu_model._to_json(),
             "cpu_topology": manifest.cpu_topology._to_json(),
         }
         with open(_MANIFEST_PATH, "w", encoding="utf8") as f:
@@ -56,31 +55,30 @@ class SystemManifest:
 
 
 class CpuModel(str, Enum):
-    INTEL = 'intel'
-    AMD = 'amd'
+    INTEL = "intel"
+    AMD = "amd"
 
     @staticmethod
     def _from_json(json: str) -> CpuModel:
         if not json in CpuModel:
-            raise Exception(f'Unknown CPU model: {json}')
-        return CpuModel[json]
+            raise Exception(f"Unknown CPU model: {json}")
+        return CpuModel(json)
 
     def _to_json(self) -> str:
-        self.value
-    
+        return self.value
+
     @staticmethod
     def _probe() -> CpuModel:
-        with open(util.RESOURCE_DIR/"CPU", 'r', encoding='utf8') as f:
+        with open(util.RESOURCE_DIR / "CPU", "r", encoding="utf8") as f:
             return CpuModel._from_json(f.read().strip())
 
     def hardware_virtualization_flag(self) -> str:
         match self:
             case CpuModel.INTEL:
-                return 'vmx'
+                return "vmx"
             case CpuModel.AMD:
-                return 'svm'
+                return "svm"
 
-            
 
 @dataclass
 class CpuTopology:

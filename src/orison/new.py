@@ -1,12 +1,13 @@
-from pathlib import Path
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import no_type_check
 
 from . import sh, util
+from .bootstrap import build_iso
 from .command import Arg, cmd
 from .destroy import destroy_internal
 from .launch import launch as _launch
-from .system_manifest import SystemManifest, CpuModel
-from .bootstrap import build_iso
+from .system_manifest import CpuModel, SystemManifest
 from .vm_manifest import VmManifest
 
 _LAUNCH_ARGS = _launch._argspec  # type: ignore # pylint: disable=protected-access
@@ -52,7 +53,7 @@ def new(
         raise SystemExit("Cannot call a VM system")
     if not desktop and icon is not None:
         raise SystemExit("--icon can only be passed with --desktop")
-    if not desktop and not shared:
+    if not desktop and shared:
         raise SystemExit("Cannot pass launch options without --desktop")
 
     system_manifest = SystemManifest.load()
@@ -80,6 +81,7 @@ def new(
     resources = build_iso(vm_manifest)
     _create_vm(vm_manifest, system_manifest, resources)
     _finalize_config(vm_manifest, system_manifest)
+    vm_manifest.mark_complete()
 
 
 def _create_disk(disk: Path) -> None:
@@ -114,7 +116,8 @@ def _create_vm(
         "--boot",
         "uefi=off",
         # Apparently this setting improves passthrough performance and stability
-        '--machine', 'q35',
+        "--machine",
+        "q35",
         # We start with 2GB of RAM (in MB), the minimum Windows 10 needs to function. This will
         # be changed later
         "--memory",
@@ -165,82 +168,89 @@ def _create_vm(
         capture=False,
     )
 
+
+@no_type_check  # MyPy hates ElementTree
 def _finalize_config(vm_manifest: VmManifest, system_manifest: SystemManifest) -> None:
-    domain = sh.virsh('dumpxml', vm_manifest.name)
+    domain = sh.virsh("dumpxml", vm_manifest.name)
     domain = ET.fromstring(domain)
 
     # Enable shared memory
-    memory_backing = ET.SubElement(domain, 'memoryBacking')
-    ET.SubElement(memory_backing, 'source', type='memfd')
-    ET.SubElement(memory_backing, 'access', mode='shared')
+    memory_backing = ET.SubElement(domain, "memoryBacking")
+    ET.SubElement(memory_backing, "source", type="memfd")
+    ET.SubElement(memory_backing, "access", mode="shared")
 
     # Mark the CPU config as non-migratable. This exposes every possible
     # property of the host CPU to the guest
-    cpu = domain.find('cpu')
-    cpu.attrib['migratable'] = 'off'
+    cpu = domain.find("cpu")
+    cpu.attrib["migratable"] = "off"
 
     # Add CPU specific virtualization flags
-    ET.SubElement(cpu, 'feature', policy='require', name=system_manifest.cpu_model.hardware_virtualization_flag())
+    ET.SubElement(
+        cpu,
+        "feature",
+        policy="require",
+        name=system_manifest.cpu_model.hardware_virtualization_flag(),
+    )
 
-    devices = domain.find('devices')
+    devices = domain.find("devices")
 
     # Remove all the extra disks used during install and set the primary disk
     # driver to virtio
-    for disk in devices.findall('disk'):
-        name = disk.find('target').attrib['dev']
+    for disk in devices.findall("disk"):
+        name = disk.find("target").attrib["dev"]
         # Primary disk
-        if name == 'sda':
-            disk.find('target').attrib['dev'] = 'vda'
-            disk.find('target').attrib['bus'] = 'virtio'
+        if name == "sda":
+            disk.find("target").attrib["dev"] = "vda"
+            disk.find("target").attrib["bus"] = "virtio"
             # virsh will generate an appropriate address when the xml is
             # imported
-            disk.remove(disk.find('address'))
+            disk.remove(disk.find("address"))
         else:
             devices.remove(disk)
-    
+
     # Switch the network model to virtio
-    devices.find('interface').find('model').attrib['type'] = 'virtio'
+    devices.find("interface").find("model").attrib["type"] = "virtio"
 
     # Mount the host's home directory inside the VM
-    filesystem = ET.SubElement(devices, 'filesystem', type='mount', accessmode='passthrough')
-    ET.SubElement(filesystem, 'driver', type='virtiofs')
-    ET.SubElement(filesystem, 'source', dir=f'/var/home/{util.USERNAME}')
-    ET.SubElement(filesystem, 'target', dir='BAZZITE')
+    filesystem = ET.SubElement(
+        devices, "filesystem", type="mount", accessmode="passthrough"
+    )
+    ET.SubElement(filesystem, "driver", type="virtiofs")
+    ET.SubElement(filesystem, "source", dir=f"/var/home/{util.USERNAME}")
+    ET.SubElement(filesystem, "target", dir="BAZZITE")
 
     # Add a new Channel for the qemu guest agent
-    channel = ET.SubElement(devices, 'channel', type='unix')
-    ET.SubElement(channel, 'target', type='virtio', name='org.qemu.guest_agent.0')
+    channel = ET.SubElement(devices, "channel", type="unix")
+    ET.SubElement(channel, "target", type="virtio", name="org.qemu.guest_agent.0")
 
     # Add dedicated RNG hardware
-    rng = ET.SubElement(devices, 'rng', model='virtio')
-    backend = ET.SubElement(rng, 'backend', model="random")
-    backend.text = '/dev/urandom'
+    rng = ET.SubElement(devices, "rng", model="virtio")
+    backend = ET.SubElement(rng, "backend", model="random")
+    backend.text = "/dev/urandom"
 
     # Replace default HyperV features with (apparently) better ones
-    hyperv = domain.find('features').find('hyperv')
-    hyperv.attrib['mode'] = 'custom'
+    hyperv = domain.find("features").find("hyperv")
+    hyperv.attrib["mode"] = "custom"
     hyperv.clear()
-    ET.SubElement(hyperv, 'relaxed', state='on')
-    ET.SubElement(hyperv, 'vapic', state='on')
-    ET.SubElement(hyperv, 'spinlocks', state='on', retries='8191')
-    ET.SubElement(hyperv, 'vpindex', state='on')
-    ET.SubElement(hyperv, 'runtime', state='on')
-    ET.SubElement(hyperv, 'synic', state='on')
-    stimer = ET.SubElement(hyperv, 'stimer', state='on')
-    ET.SubElement(stimer, 'direct', state='on')
-    ET.SubElement(hyperv, 'reset', state='on')
-    ET.SubElement(hyperv, 'vendor_id', state='on', value='KVM Hv')
-    ET.SubElement(hyperv, 'frequencies', state='on')
-    ET.SubElement(hyperv, 'reenlightenment', state='on')
-    ET.SubElement(hyperv, 'tlbflush', state='on')
-    ET.SubElement(hyperv, 'ipi', state='on')
+    ET.SubElement(hyperv, "relaxed", state="on")
+    ET.SubElement(hyperv, "vapic", state="on")
+    ET.SubElement(hyperv, "spinlocks", state="on", retries="8191")
+    ET.SubElement(hyperv, "vpindex", state="on")
+    ET.SubElement(hyperv, "runtime", state="on")
+    ET.SubElement(hyperv, "synic", state="on")
+    stimer = ET.SubElement(hyperv, "stimer", state="on")
+    ET.SubElement(stimer, "direct", state="on")
+    ET.SubElement(hyperv, "reset", state="on")
+    ET.SubElement(hyperv, "vendor_id", state="on", value="KVM Hv")
+    ET.SubElement(hyperv, "frequencies", state="on")
+    ET.SubElement(hyperv, "reenlightenment", state="on")
+    ET.SubElement(hyperv, "tlbflush", state="on")
+    ET.SubElement(hyperv, "ipi", state="on")
     if system_manifest.cpu_model is CpuModel.INTEL:
-        ET.SubElement(hyperv, 'evmcs', state='on')
-    
-    xml = f'/tmp/{vm_manifest.name}.xml'
-    with open(xml, 'w', encoding='utf8') as f:
+        ET.SubElement(hyperv, "evmcs", state="on")
+
+    xml = f"/tmp/{vm_manifest.name}.xml"
+    with open(xml, "wb") as f:
         f.write(ET.tostring(domain))
 
-    sh.virsh('define', '--file', xml, '--validate')
-    
-
+    sh.virsh("define", "--file", xml, "--validate")

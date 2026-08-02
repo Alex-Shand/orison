@@ -9,18 +9,15 @@ from . import _util
 
 
 def build_iso(vm_manifest: VmManifest) -> Path:
-    if template is None:
-        template = "orison.template.default"
-
     build_dir = Path(f"/tmp/orison/template/{vm_manifest.name}")
     build_dir.mkdir(parents=True, exist_ok=True)
 
     exe = Path(__file__).resolve().parent.parent.parent
-    shutil.copy(exe, utils_dir / "orison.pyz")
+    shutil.copy(exe, build_dir / "orison.pyz")
 
-    shutil.copy(util.RESOURCE_DIR / "winsfp.msi", utils_dir / "winsfp.msi")
+    shutil.copy(util.RESOURCE_DIR / "winsfp.msi", build_dir / "winsfp.msi")
 
-    _generate_utilities(build_dir, utils_dir, run_cmd)
+    _generate_utilities(build_dir)
 
     output = util.IMAGE_DIR / f"{vm_manifest.name}-resources.iso"
     sh.run(
