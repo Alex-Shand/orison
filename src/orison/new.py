@@ -249,6 +249,30 @@ def _finalize_config(vm_manifest: VmManifest, system_manifest: SystemManifest) -
     if system_manifest.cpu_model is CpuModel.INTEL:
         ET.SubElement(hyperv, "evmcs", state="on")
 
+    #TODO: Shared VM config will split off here
+
+    # Remove the spice based display
+    for channel in devices.findall('channel'):
+        if channel.attrib['type'] == 'spicevmc':
+            devices.remove(channel)
+    devices.remove(devices.find('graphics'))
+
+    # Add a VNC server
+    graphics = ET.SubElement(devices, 'graphics', port='-1', autoport='yes', listen='0.0.0.0')
+    ET.SubElement(graphics, type='address', address='0.0.0.0')
+
+    # Disable spice audio
+    devices.find('audio').attrib['type'] = 'none'
+
+    # Remove default USB redirects
+    for redirdev in devices.findall('redirdev'):
+        devices.remove(redirdev)
+
+    for addr in system_manifest.pci_addresses:
+        hostdev = ET.SubElement(devices, 'hostdev', mode='subsystem', type='pci', managed="yes")
+        source = ET.SubElement(hostdev, 'source')
+        ET.SubElement(source, 'address', domain=f'0x{addr.domain}', bus=f'0x{addr.bus}', slot=f'0x{addr.slot}', function=f'0x{addr.function}')
+
     xml = f"/tmp/{vm_manifest.name}.xml"
     with open(xml, "wb") as f:
         f.write(ET.tostring(domain))

@@ -2,6 +2,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
+from itertools import chain
 
 from . import sh, util
 from .typez import JsonObj
@@ -14,6 +15,7 @@ class SystemManifest:
     total_ram_mb: int
     cpu_model: CpuModel
     cpu_topology: CpuTopology
+    pci_addresses: list[PciAddress]
 
     @staticmethod
     def load() -> SystemManifest:
@@ -34,6 +36,7 @@ class SystemManifest:
             total_ram_mb=json["total_ram_mb"],
             cpu_model=CpuModel._from_json(json["cpu_model"]),
             cpu_topology=CpuTopology._from_json(json["cpu_topology"]),
+            pci_addresses=[PciAddress._from_json(obj) for obj in json['pci_addresses']]
         )
 
     @staticmethod
@@ -43,11 +46,13 @@ class SystemManifest:
             total_ram_mb=_get_total_ram_mb(),
             cpu_model=CpuModel._probe(),
             cpu_topology=CpuTopology._probe(),
+            pci_addresses=PciAddress._probe(),
         )
         as_json = {
             "total_ram_mb": manifest.total_ram_mb,
             "cpu_model": manifest.cpu_model._to_json(),
             "cpu_topology": manifest.cpu_topology._to_json(),
+            "pci_addresses": [addr._to_json() for addr in manifest.pci_addresses]
         }
         with open(_MANIFEST_PATH, "w", encoding="utf8") as f:
             json.dump(as_json, f)
@@ -126,6 +131,47 @@ class CpuTopology:
                 )
         return CpuTopology(cores=len(topology), threads=threads, topology=topology)
 
+
+@dataclass
+class PciAddress:
+    domain: str
+    bus: str
+    slot: str
+    function: str
+
+    @staticmethod
+    def _from_json(json: JsonObj) -> PciAddress:
+        return PciAddress(
+            domain=json["domain"],
+            bus=json['bus'],
+            slot=json['slot'],
+            function=json['function'],
+        )
+
+    def _to_json(self) -> JsonObj:
+        return {"domain": self.domain, "bus": self.bus, "slot": self.slot, "function": self.function}
+
+    @staticmethod
+    def _probe() -> list[PciAddress]:
+        ls_iommu = util.EXE.parent/'ls-iommu'
+        gpus = sh.run(ls_iommu, '-grF', 'pciaddr').splitlines()
+        usbs = sh.run(ls_iommu, '-urF', 'pciaddr').splitlines()
+        return [PciAddress._parse(line) for line in chain(gpus, usbs)]
+    
+    @staticmethod
+    def _parse(line: str) -> PciAddress:
+        # ls-iommu returns likes that look like `IOMMU Group <n>: <addr>`
+        # <addr> contains colons
+        address = line.split(':', maxsplit=1)[1]
+        # The address is formated as <domain>:<bus>:<slot>.<function>
+        domain, bus, slot_fn = address.split(':')
+        slot, function = slot_fn.split('.')
+        return PciAddress(
+            domain=domain,
+            bus=bus,
+            slot=slot,
+            function=function,
+        )
 
 def _get_total_ram_mb() -> int:
     with open("/proc/meminfo", "r", encoding="utf8") as f:
