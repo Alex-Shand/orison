@@ -21,9 +21,9 @@ def run(
     return ""
 
 
-def virsh(*cmd: str, check: bool = True, capture: bool = True) -> str:
+def virsh(*cmd: str, check: bool = True, capture: bool = True, audit: bool = True) -> str:
     return run(
-        "virsh", "--connect", "qemu:///system", *cmd, check=check, capture=capture
+        "virsh", "--connect", "qemu:///system", *cmd, check=check, capture=capture, audit=audit
     )
 
 

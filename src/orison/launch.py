@@ -1,6 +1,23 @@
 from . import sh
 from .command import Arg, cmd
 
+_SERVICE = '''\
+[Unit]
+Description=orison launch script for vm {name}
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart={exe} selfish-launch {name}
+RemainAfterExit=yes
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+'''
 
 @cmd(
     name=Arg.positional(help="The VM to launch"),
@@ -15,15 +32,20 @@ from .command import Arg, cmd
 )
 def launch(name: str, shared: bool) -> None:
     assert not shared, "not implemented"
-    sh.virsh("start", name, capture=False)
-    sh.run(
-        "/usr/bin/flatpak",
-        "run",
-        "--branch=stable",
-        "--command=virt-manager org.virt_manager.virt-manager",
-        "--connect",
-        "qemu:///system",
-        "--show-domain-console",
-        name,
-        capture=False,
-    )
+    with open('/etc/systemd/system/orison.service', 'w', encoding='utf8') as f:
+        f.write(_SERVICE.format(name=name, exe=util.EXE))
+    sh.run('systemctl', 'set-default', 'multi-user.service', capture=False)
+    sh.run('systemctl', 'reboot')
+    # sh.virsh("start", name, capture=False)
+    # sh.run(
+    #     "/usr/bin/flatpak",
+    #     "run",
+    #     "--branch=stable",
+    #     "--command=virt-manager org.virt_manager.virt-manager",
+    #     "--connect",
+    #     "qemu:///system",
+    #     "--show-domain-console",
+    #     name,
+    #     capture=False,
+    # )
+    
