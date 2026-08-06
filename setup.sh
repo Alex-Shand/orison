@@ -20,6 +20,7 @@ python -m zipapp . \
     --python="/usr/bin/env python" \
     --compress \
     --output="$BIN/orison"
+chmod 777 "$BIN/orison"
 popd
 
 ## Virtualization Stuff ##

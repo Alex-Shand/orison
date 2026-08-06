@@ -2,7 +2,6 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum
-from itertools import chain
 
 from . import sh, util
 from .typez import JsonObj
@@ -158,9 +157,10 @@ class PciAddress:
 
     @staticmethod
     def _probe() -> list[PciAddress]:
-        gpus = sh.run("ls-iommu", "-grF", "pciaddr").splitlines()
-        usbs = sh.run("ls-iommu", "-urF", "pciaddr").splitlines()
-        return [PciAddress._parse(line) for line in chain(gpus, usbs)]
+        return [
+            PciAddress._parse(line)
+            for line in sh.run("ls-iommu", "-grF", "pciaddr").splitlines()
+        ]
 
     @staticmethod
     def _parse(line: str) -> PciAddress:
