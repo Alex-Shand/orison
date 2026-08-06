@@ -32,22 +32,23 @@ WantedBy=multi-user.target
     ),
 )
 def launch(name: str, shared: bool) -> None:
-    assert not shared, "not implemented"
-    print(name)
+    if shared:
+        sh.virsh("start", name, capture=False)
+        sh.run(
+            "/usr/bin/flatpak",
+            "run",
+            "--branch=stable",
+            "--command=virt-manager org.virt_manager.virt-manager",
+            "--connect",
+            "qemu:///system",
+            "--show-domain-console",
+            f'{name} [shared]',
+            capture=False,
+        )
+        return
+
     with open("/etc/systemd/system/orison.service", "w", encoding="utf8") as f:
         f.write(_SERVICE.format(name=name, exe=util.EXE))
     sh.run("systemctl", "enable", "orison.service", capture=False)
     sh.run("systemctl", "set-default", "multi-user.target", capture=False)
     sh.run("systemctl", "reboot", capture=False)
-    # sh.virsh("start", name, capture=False)
-    # sh.run(
-    #     "/usr/bin/flatpak",
-    #     "run",
-    #     "--branch=stable",
-    #     "--command=virt-manager org.virt_manager.virt-manager",
-    #     "--connect",
-    #     "qemu:///system",
-    #     "--show-domain-console",
-    #     name,
-    #     capture=False,
-    # )

@@ -1,6 +1,8 @@
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import no_type_check
+from copy import deepcopy
+import uuid
 
 from . import sh, util
 from .bootstrap import build_iso
@@ -28,6 +30,7 @@ _LAUNCH_ARGS = {
         help="If the VM already exists with the same settings re-create it instead of doing "
         "nothing",
     ),
+    no_update=Arg.switch(help="If passed do not attempt to install windows updates after VM creation"),
     desktop=Arg.switch(
         short="d",
         help="Create a .desktop file to launch the VM. If --desktop is passed then any options on "
@@ -43,6 +46,7 @@ def new(
     name: str,
     template: str | None,
     force: bool,
+    no_update: bool,
     desktop: bool,
     icon: str | None,
     snapshot: bool,
@@ -82,6 +86,12 @@ def new(
     _create_vm(vm_manifest, system_manifest, resources)
     _finalize_config(vm_manifest, system_manifest)
     vm_manifest.mark_complete()
+
+    # Launch the VM to install updates. We don't really have a good way of
+    # detecting when this is done so we just leave it, you have to shut it down
+    # yourself
+    if not no_update:
+        _launch(vm_manifest.name, shared=True)
 
 
 def _create_disk(disk: Path) -> None:
@@ -249,7 +259,20 @@ def _finalize_config(vm_manifest: VmManifest, system_manifest: SystemManifest) -
     if system_manifest.cpu_model is CpuModel.INTEL:
         ET.SubElement(hyperv, "evmcs", state="on")
 
-    # TODO: Shared VM config will split off here
+    _prepare_shared(vm_manifest, deepcopy(domain))
+    _prepare_selfish(vm_manifest, system_manifest, domain)
+
+@no_type_check
+def _prepare_shared(vm_manifest, domain):
+    # Shared should be a different VM in libvirt so we need to update the name
+    # and uuid
+    domain.find('name').text = f'{vm_manifest.name} [shared]'
+    domain.find('uuid').text = str(uuid.uuid4())
+    _define_vm(vm_manifest, domain)
+
+@no_type_check
+def _prepare_selfish(vm_manifest, system_manifest, domain):
+    devices = domain.find("devices")
 
     # Remove the spice based display
     for channel in devices.findall("channel"):
@@ -284,6 +307,10 @@ def _finalize_config(vm_manifest: VmManifest, system_manifest: SystemManifest) -
             function=f"0x{addr.function}",
         )
 
+    _define_vm(domain)
+
+@no_type_check
+def _define_vm(vm_manifest, domain):
     xml = f"/tmp/{vm_manifest.name}.xml"
     with open(xml, "wb") as f:
         f.write(ET.tostring(domain))
