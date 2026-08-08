@@ -12,6 +12,8 @@ def destroy(name: str) -> None:
 
 
 def destroy_internal(manifest: VmManifest) -> None:
-    sh.virsh("destroy", manifest.name, check=False)
-    sh.virsh("undefine", manifest.name, check=False)
+    sh.virsh("destroy", manifest.name, check=False, capture=False)
+    sh.virsh("undefine", manifest.name, check=False, capture=False)
+    sh.virsh("destroy", f"{manifest.name} [shared]", check=False, capture=False)
+    sh.virsh("undefine", f"{manifest.name} [shared]", check=False, capture=False)
     manifest.disk.unlink(missing_ok=True)

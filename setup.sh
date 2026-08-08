@@ -23,13 +23,19 @@ python -m zipapp . \
 chmod 777 "$BIN/orison"
 popd
 
+## Utilities ##
+RESOURCE_DIR=$HOME/.orison
+mkdir -p "$RESOURCE_DIR"
+
+cp update_hook.bat "$RESOURCE_DIR/update_hook.bat"
+cp Install-Updates.ps1 "$RESOURCE_DIR/Install-Updates.ps1"
+cp Install-Hook.ps1 "$RESOURCE_DIR/Install-Hook.ps1"
+
 ## Virtualization Stuff ##
 
 sudo rpm-ostree install --idempotent qemu-kvm libvirt virt-install virt-viewer
 ujust setup-virtualization virt-on
 
-RESOURCE_DIR=$HOME/.orison/
-mkdir -p "$RESOURCE_DIR"
 if ! [[ -f "$RESOURCE_DIR/winsfp.msi" ]]; then
     curl -LsSf https://github.com/winfsp/winfsp/releases/download/v2.2B3/winfsp-2.2.26194.msi -o "$RESOURCE_DIR/winsfp.msi"
 fi

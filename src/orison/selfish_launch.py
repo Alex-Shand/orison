@@ -15,6 +15,12 @@ def selfish_launch(name: str) -> None:
     os.remove("/etc/systemd/system/orison.service")
     sh.run("systemctl", "set-default", "graphical.target", capture=False, audit=True)
 
+    with open("/sys/kernel/mm/transparent_hugepage/enabled", "w", encoding="utf8") as f:
+        f.write("never")
+
+    sh.run("sysctl", "vm.stat_interval=120")
+    sh.run("sysctl", "-w", "kernel.watchdog=0")
+
     # We need to unbind all of the PCI addresses that we've used in the hostdev
     # tags in the VM definition so it can access them
     system_manifest = SystemManifest.load()
@@ -26,8 +32,8 @@ def selfish_launch(name: str) -> None:
             audit=True,
         )
 
-    # # Load the VFIO Kernel Module
+    # Load the VFIO Kernel Module
     sh.run("modprobe", "vfio-pci", capture=False, audit=True)
 
-    # # Start the VM
+    # Start the VM
     sh.virsh("start", name, capture=False, audit=True)

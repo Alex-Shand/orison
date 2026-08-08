@@ -1,8 +1,10 @@
+import threading
+import time
+import uuid
 import xml.etree.ElementTree as ET
+from copy import deepcopy
 from pathlib import Path
 from typing import no_type_check
-from copy import deepcopy
-import uuid
 
 from . import sh, util
 from .bootstrap import build_iso
@@ -30,7 +32,9 @@ _LAUNCH_ARGS = {
         help="If the VM already exists with the same settings re-create it instead of doing "
         "nothing",
     ),
-    no_update=Arg.switch(help="If passed do not attempt to install windows updates after VM creation"),
+    no_update=Arg.switch(
+        help="If passed do not attempt to install windows updates after VM creation"
+    ),
     desktop=Arg.switch(
         short="d",
         help="Create a .desktop file to launch the VM. If --desktop is passed then any options on "
@@ -91,6 +95,9 @@ def new(
     # detecting when this is done so we just leave it, you have to shut it down
     # yourself
     if not no_update:
+        threading.Thread(
+            target=_install_update_hook, kwargs={"name": f"{vm_manifest.name} [shared]"}
+        ).start()
         _launch(vm_manifest.name, shared=True)
 
 
@@ -262,13 +269,15 @@ def _finalize_config(vm_manifest: VmManifest, system_manifest: SystemManifest) -
     _prepare_shared(vm_manifest, deepcopy(domain))
     _prepare_selfish(vm_manifest, system_manifest, domain)
 
+
 @no_type_check
 def _prepare_shared(vm_manifest, domain):
     # Shared should be a different VM in libvirt so we need to update the name
     # and uuid
-    domain.find('name').text = f'{vm_manifest.name} [shared]'
-    domain.find('uuid').text = str(uuid.uuid4())
+    domain.find("name").text = f"{vm_manifest.name} [shared]"
+    domain.find("uuid").text = str(uuid.uuid4())
     _define_vm(vm_manifest, domain)
+
 
 @no_type_check
 def _prepare_selfish(vm_manifest, system_manifest, domain):
@@ -307,7 +316,8 @@ def _prepare_selfish(vm_manifest, system_manifest, domain):
             function=f"0x{addr.function}",
         )
 
-    _define_vm(domain)
+    _define_vm(vm_manifest, domain)
+
 
 @no_type_check
 def _define_vm(vm_manifest, domain):
@@ -316,3 +326,10 @@ def _define_vm(vm_manifest, domain):
         f.write(ET.tostring(domain))
 
     sh.virsh("define", "--file", xml, "--validate", capture=False)
+
+
+def _install_update_hook(*, name: str) -> None:
+    while not sh.guest_ping(name):
+        time.sleep(1)
+    sh.qemu(name, "Z:\\.orison\\Install-Hook.ps1")
+    sh.virsh("reboot", "--mode", "agent")

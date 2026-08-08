@@ -1,0 +1,1 @@
+Copy-Item -Path Z:\.orison\update_hook.bat -Destination 'C:\Users\Admin\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\update_hook.bat'

@@ -1,3 +1,5 @@
+import os
+
 from . import sh, util
 from .command import Arg, cmd
 
@@ -19,6 +21,19 @@ StandardError=journal
 WantedBy=multi-user.target
 """
 
+_HOOK = """\
+#!/usr/bin/env bash
+
+NAME=$1
+ACTION=$2
+PHASE=$3
+
+if [[ "$NAME" == "{name}" ]] && [[ "$ACTION" == "stopped" ]] && [[ "$PHASE" == "end" ]]; then
+    python {exe} selfish-end
+fi
+
+"""
+
 
 @cmd(
     name=Arg.positional(help="The VM to launch"),
@@ -33,22 +48,38 @@ WantedBy=multi-user.target
 )
 def launch(name: str, shared: bool) -> None:
     if shared:
-        sh.virsh("start", name, capture=False)
+        sh.virsh("start", f"{name} [shared]", capture=False)
         sh.run(
+            "sudo",
+            "-u",
+            str(util.USERNAME),
             "/usr/bin/flatpak",
             "run",
             "--branch=stable",
-            "--command=virt-manager org.virt_manager.virt-manager",
+            "--command=virt-manager",
+            "org.virt_manager.virt-manager",
             "--connect",
             "qemu:///system",
             "--show-domain-console",
-            f'{name} [shared]',
+            f"{name} [shared]",
             capture=False,
         )
-        return
+    else:
+        with open("/etc/systemd/system/orison.service", "w", encoding="utf8") as f:
+            f.write(_SERVICE.format(name=name, exe=util.EXE))
+        with open("/etc/libvirt/hooks/qemu", "w", encoding="utf8") as f:
+            f.write(_HOOK.format(name=name, exe=util.EXE))
+        os.chmod("/etc/libvirt/hooks/qemu", 0o777)
+        sh.run("systemctl", "enable", "orison.service", capture=False)
+        sh.run("systemctl", "set-default", "multi-user.target", capture=False)
 
-    with open("/etc/systemd/system/orison.service", "w", encoding="utf8") as f:
-        f.write(_SERVICE.format(name=name, exe=util.EXE))
-    sh.run("systemctl", "enable", "orison.service", capture=False)
-    sh.run("systemctl", "set-default", "multi-user.target", capture=False)
-    sh.run("systemctl", "reboot", capture=False)
+        sh.run(
+            "rpm-ostree",
+            "kargs",
+            "--append-if-missing=hugepagesz=1G",
+            "--append-if-missing=default_hugepagesz=1G",
+            "--append-if-missing=hugepages=25",
+            capture=False,
+        )
+
+        sh.run("systemctl", "reboot", capture=False)

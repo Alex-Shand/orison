@@ -1,0 +1,1 @@
+powershell -C "Start-Process powershell -Verb runAs -ArgumentList '-C &{ Z:\\.orison\Install-Updates.ps1 2>&1 | Tee-Object -FilePath $HOME/update.log -Append }' -Wait"
