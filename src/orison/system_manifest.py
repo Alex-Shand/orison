@@ -92,7 +92,7 @@ class CpuModel(str, Enum):
 class CpuTopology:
     cores: int
     threads: int
-    topology: dict[int, list[int]]
+    topology: list[list[int]]
 
     @staticmethod
     def _from_json(json: JsonObj) -> CpuTopology:

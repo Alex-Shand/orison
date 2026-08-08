@@ -117,7 +117,7 @@ def _create_vm(
     # We explicitly provide the CPU topology to the guest because performance will be degraded if
     # Windows misdetects the it & later we're going to explicitly reserve specific host CPUs
     # to provide to the guest. The host needs to keep 2 CPUs for virtualization tasks, if the CPU
-    # is hyperthreaded this only requires one core TODO: --shared VMs should use less
+    # is hyperthreaded this only requires one core
     threads = system_manifest.cpu_topology.threads
     cores = system_manifest.cpu_topology.cores - (2 if threads == 1 else 1)
     # The guest sees one VCPU per host CPU on the cores assigned to it
@@ -209,6 +209,9 @@ def _finalize_config(vm_manifest: VmManifest, system_manifest: SystemManifest) -
         name=system_manifest.cpu_model.hardware_virtualization_flag(),
     )
 
+    # Add a dedicated IO thread
+    ET.SubElement(domain, 'iothreads').text = '1'
+
     devices = domain.find("devices")
 
     # Remove all the extra disks used during install and set the primary disk
@@ -291,6 +294,31 @@ def _prepare_selfish(vm_manifest, system_manifest, domain):
     memory_backing.remove(memory_backing.find('source'))
     hugepages = ET.SubElement(memory_backing, 'hugepages')
     ET.SubElement(hugepages, 'page', size=1024*1024, unit='KiB')
+
+    # Pin specific host CPUs
+    cputune = ET.SubElement(domain, 'cputune')
+
+    # The host needs two CPUs for virtualization tasks, if the CPU is
+    # hyperthreaded we take the first core, otherwise the first two cores
+    if system_manifest.cpu_topology.threads == 1:
+        host_cpus = f'{system_manifest.cpu_topology.topology[0][0]},{system_manifest.cpu_topology.topology[1][0]}'
+        reserved = [0, 1]
+    else:
+        host_cpus = ','.join(system_manifest.cpu_topology.topology[0])
+        reserved = [0]
+    ET.SubElement(cputune, 'emulatorpin', cpuset=host_cpus)
+    ET.SubElement(cputune, 'iothreadpin', iothread='1', cpuset=host_cpus)
+
+    # The rest of the cpus are assigned to vcpus inside the guest
+    topology = deepcopy(system_manifest.cpu_topology.topology)
+    for core in reserved:
+        del topology[core]
+    flat_topology = []
+    for core in topology:
+        for cpu in topology[core]:
+            flat_topology.append(cpu)
+    for i, core in enumerate(flat_topology):
+        ET.SubElement(cputune, 'vcpupin', vcpu=i, cpuset=core)
 
     devices = domain.find("devices")
 
