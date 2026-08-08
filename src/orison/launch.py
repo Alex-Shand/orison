@@ -2,6 +2,7 @@ import os
 
 from . import sh, util
 from .command import Arg, cmd
+from .system_manifest import SystemManifest
 
 _SERVICE = """\
 [Unit]
@@ -65,20 +66,21 @@ def launch(name: str, shared: bool) -> None:
             capture=False,
         )
     else:
-        with open("/etc/systemd/system/orison.service", "w", encoding="utf8") as f:
+        system_manifest = SystemManifest.load()
+        with open(f"/etc/systemd/system/{util.SERVICE_NAME}", "w", encoding="utf8") as f:
             f.write(_SERVICE.format(name=name, exe=util.EXE))
-        with open("/etc/libvirt/hooks/qemu", "w", encoding="utf8") as f:
+        with open(util.HOOK_PATH, "w", encoding="utf8") as f:
             f.write(_HOOK.format(name=name, exe=util.EXE))
-        os.chmod("/etc/libvirt/hooks/qemu", 0o777)
-        sh.run("systemctl", "enable", "orison.service", capture=False)
+        util.HOOK_PATH.chmod(0o777)
+        sh.run("systemctl", "enable", util.SERVICE_NAME, capture=False)
         sh.run("systemctl", "set-default", "multi-user.target", capture=False)
 
         sh.run(
             "rpm-ostree",
             "kargs",
-            "--append-if-missing=hugepagesz=1G",
-            "--append-if-missing=default_hugepagesz=1G",
-            "--append-if-missing=hugepages=25",
+            f"--append-if-missing=hugepagesz=1G",
+            f"--append-if-missing=default_hugepagesz=1G",
+            f"--append-if-missing=hugepages={system_manifest.vm_memory_gb()}",
             capture=False,
         )
 

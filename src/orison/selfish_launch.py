@@ -1,6 +1,6 @@
 import os
 
-from . import sh
+from . import sh, util
 from .command import Arg, cmd
 from .system_manifest import SystemManifest
 
@@ -11,13 +11,17 @@ def selfish_launch(name: str) -> None:
     # we've been able to find. That's going to make things difficult if the host
     # locks up at some point so the first thing we do is arange that the next
     # boot will go back to the host
-    sh.run("systemctl", "disable", "orison.service", capture=False, audit=True)
-    os.remove("/etc/systemd/system/orison.service")
+    sh.run("systemctl", "disable", util.SERVICE_NAME, capture=False, audit=True)
+    os.remove(f"/etc/systemd/system/{util.SERVICE_NAME}")
     sh.run("systemctl", "set-default", "graphical.target", capture=False, audit=True)
 
-    with open("/sys/kernel/mm/transparent_hugepage/enabled", "w", encoding="utf8") as f:
+    # This prevents the kernel from using hugepages for normal memory
+    # management. Not sure if it's useful since we've reserved ~80% of total ram
+    # by this point anyway
+    with open(util.TRANSPARENT_HUGEPAGE_PATH, "w", encoding="utf8") as f:
         f.write("never")
 
+    # Magic thingys to decrease load on the host
     sh.run("sysctl", "vm.stat_interval=120")
     sh.run("sysctl", "-w", "kernel.watchdog=0")
 

@@ -281,6 +281,17 @@ def _prepare_shared(vm_manifest, domain):
 
 @no_type_check
 def _prepare_selfish(vm_manifest, system_manifest, domain):
+    # Allocate the VM 80% of system ram, rounded down to the nearest GB
+    memory_kb = system_manifest.vm_memory_gb() * 1024 * 1024
+    domain.find("memory").text = memory_kb
+    domain.find("currentMemory").text = memory_kb
+
+    # Remove the old memory source and replace it with a hugepage backing
+    memory_backing = domain.find('memoryBacking')
+    memory_backing.remove(memory_backing.find('source'))
+    hugepages = ET.SubElement(memory_backing, 'hugepages')
+    ET.SubElement(hugepages, 'page', size=1024*1024, unit='KiB')
+
     devices = domain.find("devices")
 
     # Remove the spice based display
@@ -289,11 +300,11 @@ def _prepare_selfish(vm_manifest, system_manifest, domain):
             devices.remove(channel)
     devices.remove(devices.find("graphics"))
 
-    # Add a VNC server
-    graphics = ET.SubElement(
-        devices, "graphics", type="vnc", port="-1", autoport="yes", listen="0.0.0.0"
-    )
-    ET.SubElement(graphics, "listen", type="address", address="0.0.0.0")
+    # # Add a VNC server
+    # graphics = ET.SubElement(
+    #     devices, "graphics", type="vnc", port="-1", autoport="yes", listen="0.0.0.0"
+    # )
+    # ET.SubElement(graphics, "listen", type="address", address="0.0.0.0")
 
     # Disable spice audio
     devices.find("audio").attrib["type"] = "none"
@@ -302,6 +313,8 @@ def _prepare_selfish(vm_manifest, system_manifest, domain):
     for redirdev in devices.findall("redirdev"):
         devices.remove(redirdev)
 
+    # Bind any GPUs we found into the VM (they will have to be available at the
+    # point the VM actually boots or the PC will lock up)
     for addr in system_manifest.pci_addresses:
         hostdev = ET.SubElement(
             devices, "hostdev", mode="subsystem", type="pci", managed="yes"
@@ -332,4 +345,4 @@ def _install_update_hook(*, name: str) -> None:
     while not sh.guest_ping(name):
         time.sleep(1)
     sh.qemu(name, "Z:\\.orison\\Install-Hook.ps1")
-    sh.virsh("reboot", "--mode", "agent")
+    sh.virsh("reboot", "--mode", "agent", check=False)

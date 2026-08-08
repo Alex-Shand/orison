@@ -11,7 +11,7 @@ _MANIFEST_PATH = util.config_dir() / "system.json"
 
 @dataclass
 class SystemManifest:
-    total_ram_mb: int
+    total_ram_kb: int
     cpu_model: CpuModel
     cpu_topology: CpuTopology
     pci_addresses: list[PciAddress]
@@ -28,11 +28,15 @@ class SystemManifest:
             )
         return SystemManifest._probe()
 
+    def vm_memory_gb(self) -> int:
+        memory_kb = int(self.total_ram_kb * 0.8)
+        return memory_gb//(1024 * 1024)
+
     @staticmethod
     def _from_json(json: JsonObj) -> SystemManifest:
         # pylint: disable=protected-access
         return SystemManifest(
-            total_ram_mb=json["total_ram_mb"],
+            total_ram_kb=json["total_ram_kb"],
             cpu_model=CpuModel._from_json(json["cpu_model"]),
             cpu_topology=CpuTopology._from_json(json["cpu_topology"]),
             pci_addresses=[PciAddress._from_json(obj) for obj in json["pci_addresses"]],
@@ -42,13 +46,13 @@ class SystemManifest:
     def _probe() -> SystemManifest:
         # pylint: disable=protected-access
         manifest = SystemManifest(
-            total_ram_mb=_get_total_ram_mb(),
+            total_ram_kb=_get_total_ram_kb(),
             cpu_model=CpuModel._probe(),
             cpu_topology=CpuTopology._probe(),
             pci_addresses=PciAddress._probe(),
         )
         as_json = {
-            "total_ram_mb": manifest.total_ram_mb,
+            "total_ram_kb": manifest.total_ram_kb,
             "cpu_model": manifest.cpu_model._to_json(),
             "cpu_topology": manifest.cpu_topology._to_json(),
             "pci_addresses": [addr._to_json() for addr in manifest.pci_addresses],
@@ -178,7 +182,7 @@ class PciAddress:
         )
 
 
-def _get_total_ram_mb() -> int:
+def _get_total_ram_kb() -> int:
     with open("/proc/meminfo", "r", encoding="utf8") as f:
         lines = f.read().splitlines()
     for line in lines:
